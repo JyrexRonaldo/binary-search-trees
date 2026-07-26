@@ -1,199 +1,364 @@
-function node(data) {
+const node = (data) => {
   let left = null;
   let right = null;
-  return { data, left, right };
-}
+  return { data, right, left };
+};
 
-function tree(arr) {
-  // Set is to remove duplicates
-  arr = Array.from(new Set(arr)).sort((a, b) => a - b);
+const data = (node, start, end) => {
+  return { node, start, end };
+};
 
-  let root = buildTree(arr);
+const queue = () => {
+  const items = {};
+  let headIndex = 0;
+  let tailIndex = 0;
 
-  function buildTree(arr) {
+  const enqueue = (item) => {
+    items[tailIndex] = item;
+    tailIndex++;
+  };
+
+  const isEmpty = () => {
+    return tailIndex === headIndex;
+  };
+
+  const size = () => {
+    return tailIndex - headIndex;
+  };
+
+  const dequeue = () => {
+    if (isEmpty()) return null;
+    let item = items[headIndex];
+    delete items[headIndex];
+    headIndex++;
+    return item;
+  };
+
+  return {
+    enqueue,
+    isEmpty,
+    size,
+    dequeue,
+  };
+};
+
+const tree = (arr) => {
+  const buildTree = (arr) => {
+    arr = Array.from(new Set(arr)).sort((a, b) => (a > b ? 1 : -1));
     let n = arr.length;
-
     if (n === 0) return null;
 
     let mid = Math.floor((n - 1) / 2);
     let root = node(arr[mid]);
 
-    let q = [{ node: root, range: [0, n - 1] }];
-    let frontIndex = 0;
+    let q = queue();
+    q.enqueue(data(root, 0, n - 1));
 
-    while (frontIndex < q.length) {
-      let front = q[frontIndex];
-      let curr = front.node;
-      let [s, e] = front.range;
-      let index = s + Math.floor((e - s) / 2);
+    while (!q.isEmpty()) {
+      let d = q.dequeue();
+      let curr = d.node;
+      let st = d.start,
+        en = d.end;
+      mid = Math.floor((st + en) / 2);
 
-      if (s < index) {
-        let midLeft = s + Math.floor((index - 1 - s) / 2);
-        let left = node(arr[midLeft]);
+      // if left subtree exists
+      if (st < mid) {
+        let leftVal = Math.floor((st + mid - 1) / 2);
+        let left = node(arr[leftVal]);
         curr.left = left;
-        q.push({ node: left, range: [s, index - 1] });
+        q.enqueue(data(left, st, mid - 1));
       }
 
-      if (e > index) {
-        let midRight = index + 1 + Math.floor((e - index - 1) / 2);
-        let right = node(arr[midRight]);
+      // if right subtree exists
+      if (en > mid) {
+        let rightVal = Math.floor((mid + 1 + en) / 2);
+        let right = node(arr[rightVal]);
         curr.right = right;
-        q.push({ node: right, range: [index + 1, e] });
+        q.enqueue(data(right, mid + 1, en));
       }
-
-      frontIndex++;
     }
 
     return root;
-  }
-
-  const prettyPrint = (node, prefix = "", isLeft = true) => {
-    if (node === null) {
-      return;
-    }
-    if (node.right !== null) {
-      prettyPrint(node.right, `${prefix}${isLeft ? "│   " : "    "}`, false);
-    }
-    console.log(`${prefix}${isLeft ? "└── " : "┌── "}${node.data}`);
-    if (node.left !== null) {
-      prettyPrint(node.left, `${prefix}${isLeft ? "    " : "│   "}`, true);
-    }
   };
 
-  function insert(root, key) {
-    if (root === null) return node(key);
+  let root = buildTree(arr);
 
-    if (root.key === key) return root;
+  const includes = (value) => {
+    if (root === null) return;
 
-    if (key < root.key) root.left = insert(root.left, key);
-    else if (key > root.key) root.right = insert(root.right, key);
+    let q = queue();
+
+    q.enqueue(root);
+
+    while (!q.isEmpty()) {
+      let currentNode = q.dequeue();
+      if (currentNode.data === value) {
+        return true;
+      }
+      if (currentNode.left !== null) q.enqueue(currentNode.left);
+      if (currentNode.right !== null) q.enqueue(currentNode.right);
+    }
+    return false;
+  };
+
+  const insert = (key) => {
+    if (includes(key)) {
+      return;
+    }
+    const temp = node(key);
+
+    // If tree is empty
+    if (root === null) return temp;
+
+    // Find the node who is going to have
+    // the new node as its child
+    let curr = root;
+    while (curr !== null) {
+      if (curr.data > key && curr.left !== null) {
+        curr = curr.left;
+      } else if (curr.data < key && curr.right !== null) {
+        curr = curr.right;
+      } else break;
+    }
+
+    // If key is smaller, make it left
+    // child, else right child
+    if (curr.data > key) curr.left = temp;
+    else curr.right = temp;
 
     return root;
-  }
+  };
 
-  function getSuccessor(curr) {
+  const getSuccessor = (curr) => {
     curr = curr.right;
     while (curr !== null && curr.left !== null) {
       curr = curr.left;
     }
     return curr;
-  }
+  };
 
-  function deleteItem(root, x) {
-    if (root === null) {
-      return root;
-    }
+  const deleteNode = (root, x) => {
+    if (root === null) return root;
 
-    if (root.key > x) {
-      root.left = deleteItem(root.left, x);
-    } else if (root.key < x) {
-      root.right = deleteItem(root.right, x);
-    } else {
+    if (root.data > x) root.left = deleteNode(root.left, x);
+    else if (root.data < x) root.right = deleteNode(root.right, x);
+    else {
+      // Node with 0 or 1 child
       if (root.left === null) return root.right;
-
       if (root.right === null) return root.left;
 
-      let succ = getSuccessor(root);
-      root.key = succ.key;
-      root.right = deleteItem(root.right, succ.key);
+      // Node with 2 children
+      const succ = getSuccessor(root);
+      root.data = succ.data;
+      root.right = deleteNode(root.right, succ.data);
     }
     return root;
-  }
+  };
 
-  function find(value) {
-    if (root === null) {
-      return;
-    }
+  const deleteItem = (x) => {
+    root = deleteNode(root, x);
+  };
 
-    const q = [root];
+  const getRoot = () => {
+    return root;
+  };
 
-    let frontIndex = 0;
+  const levelOrderForEach = (callback) => {
+    if (root === null) return;
 
-    while (frontIndex < q.length) {
-      let front = q[frontIndex];
-      let curr = front.node;
-      if (curr.left !== null) {
-        q.push(curr.left);
-      }
-      if (curr.right !== null) {
-        q.push(curr.right);
-      }
-      frontIndex++;
-    }
-
-    return q.find((node) => node.data === value);
-  }
-
-  function levelOrderForEach(callback) {
     if (!callback) {
-      throw new Error("Callback is required");
+      throw new Error("Parameter is not a number!");
     }
 
+    let q = queue();
+
+    q.enqueue(root);
+
+    while (!q.isEmpty()) {
+      let currentNode = q.dequeue();
+      // if (currentNode.data === value) {
+      //   return true;
+      // }
+      callback(currentNode.data);
+      if (currentNode.left !== null) q.enqueue(currentNode.left);
+      if (currentNode.right !== null) q.enqueue(currentNode.right);
+    }
+  };
+
+  const inorderTraversal = (root, callback) => {
     if (root === null) {
       return;
     }
-
-    const q = [root];
-
-    let frontIndex = 0;
-
-    while (frontIndex < q.length) {
-      let front = q[frontIndex];
-      let curr = callback(front.node);
-      if (curr.left !== null) {
-        q.push(curr.left);
-      }
-      if (curr.right !== null) {
-        q.push(curr.right);
-      }
-      frontIndex++;
-    }
-  }
-
-  function inOrderForEach(callback) {
-    if (!callback) {
-      throw new Error("Callback is required");
-    }
-    if (root === null) {
-      return;
-    }
-    inOrderForEach(root.left);
+    inorderTraversal(root.left, callback);
     callback(root.data);
-    inOrderForEach(root.right);
-  }
-  function preOrderForEach(callback) {
-    if (!callback) {
-      throw new Error("Callback is required");
-    }
+    inorderTraversal(root.right, callback);
+  };
+
+  const inOrderForEach = (callback) => {
+    inorderTraversal(root, callback);
+  };
+
+  const preOrderTraversal = (root, callback) => {
     if (root === null) {
       return;
     }
     callback(root.data);
-    preOrderForEach(root.left);
-    preOrderForEach(root.right);
-  }
-  function postOrderForEach(callback) {
-    if (!callback) {
-      throw new Error("Callback is required");
-    }
+    preOrderTraversal(root.left, callback);
+    preOrderTraversal(root.right, callback);
+  };
+
+  const preOrderForEach = (callback) => {
+    preOrderTraversal(root, callback);
+  };
+
+  const postOrderTraversal = (root, callback) => {
     if (root === null) {
       return;
     }
-    postOrderForEach(root.left);
-    postOrderForEach(root.right);
+    postOrderTraversal(root.left, callback);
+    postOrderTraversal(root.right, callback);
     callback(root.data);
-  }
+  };
 
-  function rebalance() {
-    let arr = [];
-    function sortArray(item) {
-      arr.push(item);
+  const postOrderForEach = (callback) => {
+    postOrderTraversal(root, callback);
+  };
+
+  const getHeight = (root, h) => {
+    if (root === null) return h - 1;
+    return Math.max(getHeight(root.left, h + 1), getHeight(root.right, h + 1));
+  };
+
+  const depth = (value) => {
+    let q = queue();
+    q.enqueue([root, 0]);
+
+    let lastLevel = 0;
+
+    // function to get the height of tree
+    let height = getHeight(root, 0);
+
+    // printing the level order of tree
+    while (!q.isEmpty()) {
+      let [currentNode, lvl] = q.dequeue();
+
+      if (lvl > lastLevel) {
+        lastLevel = lvl;
+      }
+
+      // all levels are printed
+      if (lvl > height) break;
+
+      // printing null node
+      // process.stdout.write((node.data === -1 ? "N" : node.data) + " ");
+      if (currentNode.data === value) {
+        return lvl;
+      }
+
+      // null node has no children
+      if (currentNode.data === -1) continue;
+
+      if (currentNode.left === null) q.enqueue([node(-1), lvl + 1]);
+      else q.enqueue([currentNode.left, lvl + 1]);
+
+      if (currentNode.right === null) q.enqueue([node(-1), lvl + 1]);
+      else q.enqueue([currentNode.right, lvl + 1]);
     }
-    inOrderForEach(sortArray);
-    root = buildTree(arr);
-  }
+  };
 
-  return prettyPrint(root);
-}
+  const height = (value) => {
+    let q = queue();
+    q.enqueue([root, 0]);
 
-console.log(tree([1, 7, 4, 23, 8, 9, 4, 3, 5, 7, 9, 67, 6345, 324]));
+    let lastLevel = 0;
+
+    // function to get the height of tree
+    let height = getHeight(root, 0);
+
+    // printing the level order of tree
+    while (!q.isEmpty()) {
+      let [currentNode, lvl] = q.dequeue();
+
+      if (lvl > lastLevel) {
+        lastLevel = lvl;
+      }
+
+      // all levels are printed
+      if (lvl > height) break;
+
+      // printing null node
+      if (currentNode.data === value) {
+        return height - lvl;
+      }
+
+      // null node has no children
+      if (currentNode.data === -1) continue;
+
+      if (currentNode.left === null) q.enqueue([node(-1), lvl + 1]);
+      else q.enqueue([currentNode.left, lvl + 1]);
+
+      if (currentNode.right === null) q.enqueue([node(-1), lvl + 1]);
+      else q.enqueue([currentNode.right, lvl + 1]);
+    }
+  };
+
+  const rebalance = () => {
+    const allNodevalues = [];
+    const getValue = (value) => {
+      allNodevalues.push(value);
+    };
+    inOrderForEach(getValue);
+
+    root = buildTree(allNodevalues);
+  };
+
+  const getLeftLength = (node, l) => {
+    if (node === null) return l - 1;
+    return getLeftLength(node.left, l + 1);
+  };
+
+  const getRightLength = (node, l) => {
+    if (node === null) return l - 1;
+    return getRightLength(node.right, l + 1);
+  };
+
+  const isBalanced = () => {
+    let q = queue();
+    q.enqueue(root);
+
+    while (!q.isEmpty()) {
+      let currentNode = q.dequeue();
+
+      const leftLength = getLeftLength(currentNode, 0);
+
+      const rightLength = getRightLength(currentNode, 0);
+
+      const difference = leftLength - rightLength;
+      if (difference > 1 || difference < -1) {
+        return false;
+      }
+      if (currentNode.left !== null) q.enqueue(currentNode.left);
+      if (currentNode.right !== null) q.enqueue(currentNode.right);
+    }
+
+    return true;
+  };
+
+  return {
+    getRoot,
+    includes,
+    insert,
+    deleteItem,
+    levelOrderForEach,
+    inOrderForEach,
+    preOrderForEach,
+    postOrderForEach,
+    depth,
+    height,
+    rebalance,
+    isBalanced,
+  };
+};
+
+
+export default tree
